@@ -29,6 +29,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
         public Ensemble()
         {
+            _firstInputInitializationContent = string.Empty;
             _trees = new List<RegressionTree>();
         }
 
@@ -50,6 +51,30 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                 AddTree(RegressionTree.Load(ctx, usingDefaultValues, categoricalSplits));
             Bias = ctx.Reader.ReadDouble();
             _firstInputInitializationContent = ctx.LoadStringOrNull();
+            if (_firstInputInitializationContent == null)
+            {
+                _firstInputInitializationContent = string.Empty;
+            }
+        }
+
+        public Ensemble(byte[] buffer, ref int position)
+        {
+            var inputByteCount = buffer.ToInt(ref position);
+            var tmpString = System.Text.ASCIIEncoding.Unicode.GetString(buffer, position, inputByteCount);
+            if (tmpString == "EMPTY")
+            {
+                tmpString = string.Empty;
+            }
+            _firstInputInitializationContent = tmpString;
+            position += inputByteCount;
+
+            Bias = buffer.ToDouble(ref position);
+            int numTrees = buffer.ToInt(ref position);
+            _trees = new List<RegressionTree>();
+            for (int i = 0; i < numTrees; ++i)
+            {
+                _trees.Add(new RegressionTree(buffer, ref position));
+            }
         }
 
         public void Save(ModelSaveContext ctx)
@@ -66,6 +91,59 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                 tree.Save(ctx);
             writer.Write(Bias);
             ctx.SaveStringOrNull(_firstInputInitializationContent);
+        }
+
+        public void ToByteArray(byte[] buffer, ref int position)
+        {
+            // If the input initialization is empty, serialize out the word EMPTY
+            var tmpString = string.Copy(_firstInputInitializationContent);
+            if (string.IsNullOrEmpty(tmpString))
+            {
+                tmpString = "EMPTY";
+            }
+
+            // Serialize out the initialization array in unicode
+            var inputInitializeArray = System.Text.ASCIIEncoding.Unicode.GetBytes(tmpString);
+
+            // Serialize out the byte count
+            var inputByteCount = BitConverter.GetBytes(inputInitializeArray.Length);
+            Buffer.BlockCopy(inputByteCount, 0, buffer, position, inputByteCount.Length);
+            position  += inputByteCount.Length;
+
+            Buffer.BlockCopy(inputInitializeArray, 0, buffer, position, inputInitializeArray.Length);
+            position += inputInitializeArray.Length;
+
+            // Serialize the bias
+            var biasByteArray = BitConverter.GetBytes(Bias);
+            int count = biasByteArray.Length;
+            Buffer.BlockCopy(biasByteArray, 0, buffer, position, count);
+            position += count;
+
+            // Serialize the tree count
+            var treeSizeByteArray = BitConverter.GetBytes(_trees.Count);
+            count = treeSizeByteArray.Length;
+            Buffer.BlockCopy(treeSizeByteArray, 0, buffer, position, count);
+            position += count;
+
+            foreach(var tree in _trees)
+            {
+                tree.ToByteArray(buffer, ref position);
+            }
+        }
+
+
+        public int SizeInBytes()
+        {
+            var tmpString = _firstInputInitializationContent;
+            if (string.IsNullOrEmpty(tmpString))
+            {
+                tmpString="EMPTY";
+            }
+            return sizeof(int) // byte count of input initialization string
+                  + System.Text.ASCIIEncoding.Unicode.GetByteCount(tmpString) // the buffer encoded
+                  + sizeof(double)  // bias
+                  + sizeof(int)     //tree count
+                  + _trees.Sum(x => x.SizeInBytes());
         }
 
         public void AddTree(RegressionTree tree) => _trees.Add(tree);
@@ -353,6 +431,8 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
             builder.GetResult(ref contribs);
         }
+
+        
     }
 
     public class FeatureToGainMap : Dictionary<int, double>

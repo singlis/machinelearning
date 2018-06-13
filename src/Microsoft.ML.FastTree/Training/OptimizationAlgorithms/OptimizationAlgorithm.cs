@@ -32,17 +32,22 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
         public IStepSearch AdjustTreeOutputsOverride; // if set it overrides IStepSearch possibly implemented by ObejctiveFunctionBase
         public double Smoothing;
-        public double DropoutRate;
-        public Random DropoutRng;
+        protected double _dropoutRate;
+        protected Random _dropoutRng;
+        private int _dropoutSeed;
         public bool UseFastTrainingScoresUpdate;
 
-        public OptimizationAlgorithm(Ensemble ensemble, Dataset trainData, double[] initTrainScores)
+        public OptimizationAlgorithm(Ensemble ensemble, Dataset trainData, double[] initTrainScores,
+            double dropoutRate = 0, int dropoutSeed = int.MinValue)
         {
             Ensemble = ensemble;
             TrainingScores = ConstructScoreTracker("train", trainData, initTrainScores);
             TrackedScores = new List<ScoreTracker>();
             TrackedScores.Add(TrainingScores);
-            DropoutRng = new Random();
+            if (dropoutSeed != int.MinValue)
+                _dropoutRng = new Random(dropoutSeed);
+            _dropoutSeed = dropoutSeed;
+            _dropoutRate = dropoutRate;
             UseFastTrainingScoresUpdate = true;
         }
 
@@ -63,6 +68,20 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
             {
                 foreach (ScoreTracker t in TrackedScores)
                     UpdateScores(t, tree);
+            }
+        }
+
+        /// <summary>
+        /// Force the initialization of scores on all the tracked scores for cases when
+        /// the ensemble is non-empty.
+        /// Note: This should be marked as protected and merged into the constructor once all constructor parameters are internalized
+        /// </summary>
+        public virtual void InitializeScores()
+        {         
+            foreach (var tree in Ensemble.Trees)
+            {
+                foreach (ScoreTracker t in TrackedScores)
+                    t.AddScores(tree, 1.0);
             }
         }
 
@@ -117,5 +136,12 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                 TrackedScores.Clear();  //Invalidate all precomputed scores as they are not valid anymore //slow method of score computation will be used instead
             }
         }
+
+        protected void ResetDropoutSeed()
+        {
+            _dropoutRng = new Random(_dropoutSeed + Iteration);
+        }
+
+        protected int Iteration => Ensemble.NumTrees;
     }
 }

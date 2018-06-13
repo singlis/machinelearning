@@ -13,28 +13,28 @@ Confusion table
           ||======================
 PREDICTED || positive | negative | Recall
 TRUTH     ||======================
- positive ||      234 |        7 | 0.9710
+ positive ||      235 |        6 | 0.9751
  negative ||       28 |      430 | 0.9389
           ||======================
-Precision ||   0.8931 |   0.9840 |
-OVERALL 0/1 ACCURACY: 0.949928
-LOG LOSS/instance:  0.626065
+Precision ||   0.8935 |   0.9862 |
+OVERALL 0/1 ACCURACY: 0.951359
+LOG LOSS/instance:  0.600143
 Test-set entropy (prior Log-Loss/instance): 0.929318
-LOG-LOSS REDUCTION (RIG): 32.631826
-AUC:                0.987371
+LOG-LOSS REDUCTION (RIG): 35.421145
+AUC:                0.987742
 
 OVERALL RESULTS
 ---------------------------------------
-AUC:                0.987371 (0.0000)
-Accuracy:           0.949928 (0.0000)
-Positive precision: 0.893130 (0.0000)
-Positive recall:    0.970954 (0.0000)
-Negative precision: 0.983982 (0.0000)
+AUC:                0.987742 (0.0000)
+Accuracy:           0.951359 (0.0000)
+Positive precision: 0.893536 (0.0000)
+Positive recall:    0.975104 (0.0000)
+Negative precision: 0.986239 (0.0000)
 Negative recall:    0.938865 (0.0000)
-Log-loss:           0.626065 (0.0000)
-Log-loss reduction: 32.631826 (0.0000)
-F1 Score:           0.930417 (0.0000)
-AUPRC:              0.942315 (0.0000)
+Log-loss:           0.600143 (0.0000)
+Log-loss reduction: 35.421145 (0.0000)
+F1 Score:           0.932540 (0.0000)
+AUPRC:              0.943200 (0.0000)
 
 ---------------------------------------
 Physical memory usage(MB): %Number%

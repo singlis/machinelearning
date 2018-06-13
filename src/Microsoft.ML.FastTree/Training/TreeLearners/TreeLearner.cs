@@ -25,6 +25,12 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         public abstract RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, double[] targets);
 
         /// <summary>
+        /// Reset any random number generator(s) to allow synchronization at boundaries
+        /// </summary>
+        /// <param name="seedModifier">An integer to add to the provided seed</param>
+        public abstract void ResetRandomState(int seedModifier);
+
+        /// <summary>
         /// Get size of reserved memory for the tree learner.
         /// The default implementation returns 0 directly, and the subclasses can return
         /// different value if it reserves memory for training.

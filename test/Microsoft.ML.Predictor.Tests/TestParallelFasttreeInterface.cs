@@ -24,6 +24,10 @@ namespace Microsoft.ML.Runtime.RunTests
         private bool _isInitTreeLearner = false;
         private bool _isInitIteration = false;
         private bool _isCache = false;
+        private bool _isInitTraining = false;
+        private bool _isLearnTree = false;
+        private bool _isInitBins = false;
+
         public void CacheHistogram(bool isSmallerLeaf, int featureIdx, int subfeature, SufficientStatsBase sufficientStatsBase, bool HasWeights)
         {
             Assert.True(_isInitEnv);
@@ -114,6 +118,15 @@ namespace Microsoft.ML.Runtime.RunTests
             return;
         }
 
+        public void InitializeTraining(Ensemble ensemble)
+        {
+            Assert.NotNull(ensemble);
+            Assert.True(_isInitEnv);
+            Assert.True(_isInitBins);
+            _isInitTraining = true;
+            return;
+        }
+
         public void InitTreeLearner(Dataset trainData, int maxNumLeaves, int maxCatSplitPoints, ref int minDocInLeaf)
         {
             Assert.True(_isInitEnv);
@@ -121,6 +134,32 @@ namespace Microsoft.ML.Runtime.RunTests
             _isInitTreeLearner = true;
             Assert.NotNull(trainData);
             return;
+        }
+
+        public RegressionTree LearnTree(IChannel ch, Func<IChannel, bool[], double[], int, RegressionTree> treeLearner, bool[] activeFeatures, double[] targets)
+
+        {
+            Assert.NotNull(treeLearner);
+            Assert.NotNull(activeFeatures);
+            Assert.NotNull(targets);
+            Assert.True(_isInitEnv);
+            Assert.True(_isInitBins);
+            Assert.True(_isInitTreeLearner);
+            Assert.True(_isInitTraining);
+            _isLearnTree = true;
+            return treeLearner(ch, activeFeatures, targets, 123);
+        }
+
+        public bool InitializeBins(double[][] binUpperBounds)
+        {
+            Assert.NotNull(binUpperBounds);
+            Assert.False(_isInitIteration);
+            Assert.False(_isInitTraining);
+            Assert.False(_isInitTreeLearner);
+            Assert.False(_isLearnTree);
+            Assert.False(_isCache);
+            _isInitBins = true;
+            return false;
         }
 
         public void SyncGlobalBoundary(int numFeatures, int maxBin, Double[][] binUpperBounds)
