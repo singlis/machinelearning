@@ -51,9 +51,6 @@ Each tree in a decision forest outputs a Gaussian distribution.
             optimizationAlgorithm.TreeLearner = ConstructTreeLearner(ch);
             optimizationAlgorithm.ObjectiveFunction = ConstructObjFunc(ch);
             optimizationAlgorithm.Smoothing = Args.Smoothing;
-            // No notion of dropout for non-boosting applications.
-            optimizationAlgorithm.DropoutRate = 0;
-            optimizationAlgorithm.DropoutRng = null;
             optimizationAlgorithm.PreScoreUpdateEvent += PrintTestGraph;
 
             return optimizationAlgorithm;

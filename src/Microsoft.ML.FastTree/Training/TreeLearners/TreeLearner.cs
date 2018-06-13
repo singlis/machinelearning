@@ -22,7 +22,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
         public static string TargetWeightsDatasetName { get { return "TargetWeightsDataset"; } }
 
-        public abstract RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, double[] targets);
+        public abstract RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, double[] targets, int iteration = 0);
 
         /// <summary>
         /// Get size of reserved memory for the tree learner.

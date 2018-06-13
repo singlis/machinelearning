@@ -12,8 +12,9 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
     {
         private IGradientAdjuster _gradientWrapper;
         // REVIEW: When the FastTree appliation is decoupled with tree learner and boosting logic, this class should be removed.
-        public RandomForestOptimizer(Ensemble ensemble, Dataset trainData, double[] initTrainScores, IGradientAdjuster gradientWrapper)
-            : base(ensemble, trainData, initTrainScores, gradientWrapper)
+        public RandomForestOptimizer(Ensemble ensemble, Dataset trainData, double[] initTrainScores, IGradientAdjuster gradientWrapper,
+            double dropoutRate = 0, int dropoutSeed = int.MinValue)
+            : base(ensemble, trainData, initTrainScores, gradientWrapper, dropoutRate, dropoutSeed)
         {
             _gradientWrapper = gradientWrapper;
         }
@@ -32,7 +33,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
             double[] targets = GetGradient(ch);
             double[] weightedTargets = _gradientWrapper.AdjustTargetAndSetWeights(targets, ObjectiveFunction, out sampleWeights);
             RegressionTree tree = ((RandomForestLeastSquaresTreeLearner)TreeLearner).FitTargets(ch, activeFeatures, weightedTargets,
-                targets, sampleWeights);
+                targets, sampleWeights, iteration: Iteration);
 
             if (tree != null)
                 Ensemble.AddTree(tree);

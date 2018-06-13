@@ -21,8 +21,9 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         private double[] _droppedScores;
         private double[] _scores;
 
-        public GradientDescent(Ensemble ensemble, Dataset trainData, double[] initTrainScores, IGradientAdjuster gradientWrapper)
-            : base(ensemble, trainData, initTrainScores)
+        public GradientDescent(Ensemble ensemble, Dataset trainData, double[] initTrainScores, IGradientAdjuster gradientWrapper,
+            double dropoutRate = 0, int dropoutSeed = int.MinValue)
+            : base(ensemble, trainData, initTrainScores, dropoutRate, dropoutSeed)
         {
             _gradientWrapper = gradientWrapper;
             _treeScores = new List<double[]>();
@@ -36,7 +37,11 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         protected virtual double[] GetGradient(IChannel ch)
         {
             Contracts.AssertValue(ch);
-            if (DropoutRate > 0)
+
+            // Assumes that GetGradient is called at most once per iteration
+            ResetDropoutSeed();
+
+            if (_dropoutRate > 0)
             {
                 if (_droppedScores == null)
                     _droppedScores = new double[TrainingScores.Scores.Length];
@@ -46,16 +51,16 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                     _scores = new double[TrainingScores.Scores.Length];
                 int numberOfTrees = Ensemble.NumTrees;
                 int[] droppedTrees =
-                    Enumerable.Range(0, numberOfTrees).Where(t => (DropoutRng.NextDouble() < DropoutRate)).ToArray();
+                    Enumerable.Range(0, numberOfTrees).Where(t => (_dropoutRng.NextDouble() < _dropoutRate)).ToArray();
                 _numberOfDroppedTrees = droppedTrees.Length;
                 if ((_numberOfDroppedTrees == 0) && (numberOfTrees > 0))
                 {
-                    droppedTrees = new int[] { DropoutRng.Next(numberOfTrees) };
+                    droppedTrees = new int[] { _dropoutRng.Next(numberOfTrees) };
                     // force at least a single tree to be dropped 
                     _numberOfDroppedTrees = droppedTrees.Length;
                 }
                 ch.Trace("dropout: Dropping {0} trees of {1} for rate {2}",
-                    _numberOfDroppedTrees, numberOfTrees, DropoutRate);
+                    _numberOfDroppedTrees, numberOfTrees, _dropoutRate);
                 foreach (int i in droppedTrees)
                 {
                     double[] s = _treeScores[i];
@@ -94,7 +99,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         {
             Contracts.CheckValue(ch, nameof(ch));
             // Fit a regression tree to the gradient using least squares.
-            RegressionTree tree = TreeLearner.FitTargets(ch, activeFeatures, AdjustTargetsAndSetWeights(ch));
+            RegressionTree tree = TreeLearner.FitTargets(ch, activeFeatures, AdjustTargetsAndSetWeights(ch), iteration: Iteration);
             if (tree == null)
                 return null; // Could not learn a tree. Exit.
 
@@ -105,7 +110,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
             {
                 double[] backupScores = null;
                 // when doing dropouts we need to replace the TrainingScores with the scores without the dropped trees 
-                if (DropoutRate > 0)
+                if (_dropoutRate > 0)
                 {
                     backupScores = TrainingScores.Scores;
                     TrainingScores.Scores = _scores;
@@ -117,7 +122,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                     (ObjectiveFunction as IStepSearch).AdjustTreeOutputs(ch, tree, TreeLearner.Partitioning, TrainingScores);
                 else
                     throw ch.Except("No AdjustTreeOutputs defined. Objective function should define IStepSearch or AdjustTreeOutputsOverride should be set");
-                if (DropoutRate > 0)
+                if (_dropoutRate > 0)
                 {
                     // Returning the original scores.
                     TrainingScores.Scores = backupScores;
@@ -128,7 +133,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                 SmoothTree(tree, Smoothing);
                 UseFastTrainingScoresUpdate = false;
             }
-            if (DropoutRate > 0)
+            if (_dropoutRate > 0)
             {
                 // Don't do shrinkage if you do dropouts.
                 double scaling = (1.0 / (1.0 + _numberOfDroppedTrees));

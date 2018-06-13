@@ -62,7 +62,8 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         // how many times each feature has been split on, for diversity penalty
         protected readonly int[] FeatureUseCount;
 
-        protected readonly Random Rand;
+        protected Random Rand;
+        private readonly int _randomSeed;
 
         protected readonly double SplitFraction;
         protected readonly bool FilterZeros;
@@ -163,6 +164,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
             FeatureUseCount = new int[TrainData.NumFeatures];
             Rand = new Random(randomSeed);
+            _randomSeed = randomSeed;
             SplitFraction = splitFraction;
             FilterZeros = filterZeros;
             BsrMaxTreeOutput = bsrMaxTreeOutput;
@@ -213,7 +215,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         /// Learns a new tree for the current outputs
         /// </summary>
         /// <returns>A regression tree</returns>
-        public sealed override RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, double[] targets)
+        public sealed override RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, double[] targets, int iteration = 0)
         {
             int maxLeaves = base.NumLeaves;
             using (Timer.Time(TimerEvent.TreeLearnerGetTree))
@@ -224,7 +226,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                 tree.ActiveFeatures = (bool[])activeFeatures.Clone();
 
                 // clear memory
-                Initialize(activeFeatures);
+                Initialize(activeFeatures, iteration);
 
                 // find the best split of the root node.
                 FindBestSplitOfRoot(targets);
@@ -318,12 +320,23 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         /// <summary>
         /// Clears data structures
         /// </summary>
-        private void Initialize(bool[] activeFeatures)
+        private void Initialize(bool[] activeFeatures, int iteration)
         {
+            // Synchronize the Random Number Generator
+            ResetRandomNumberGenerator(iteration);
             _parallelTraining.InitIteration(ref activeFeatures);
             ActiveFeatures = activeFeatures;
             HistogramArrayPool.Reset();
             Partitioning.Initialize();
+        }
+
+        /// <summary>
+        /// Reset the random number generator to synchronize at iteration boundaries
+        /// </summary>
+        /// <param name="iteration">The iteration</param>
+        protected void ResetRandomNumberGenerator(int iteration)
+        {
+            Rand = new Random(_randomSeed + iteration);
         }
 
         protected bool HasWeights => TrainData?.SampleWeights != null;

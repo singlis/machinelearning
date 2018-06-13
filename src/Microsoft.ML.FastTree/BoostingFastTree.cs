@@ -68,13 +68,16 @@ namespace Microsoft.ML.Runtime.FastTree
             switch (Args.OptimizationAlgorithm)
             {
                 case BoostedTreeArgs.OptimizationAlgorithmType.GradientDescent:
-                    optimizationAlgorithm = new GradientDescent(Ensemble, TrainSet, InitTrainScores, gradientWrapper);
+                    optimizationAlgorithm = new GradientDescent(Ensemble, TrainSet, InitTrainScores, gradientWrapper,
+                        dropoutRate: Args.DropoutRate, dropoutSeed: Args.RngSeed);
                     break;
                 case BoostedTreeArgs.OptimizationAlgorithmType.AcceleratedGradientDescent:
-                    optimizationAlgorithm = new AcceleratedGradientDescent(Ensemble, TrainSet, InitTrainScores, gradientWrapper);
+                    optimizationAlgorithm = new AcceleratedGradientDescent(Ensemble, TrainSet, InitTrainScores, gradientWrapper,
+                        dropoutRate: Args.DropoutRate, dropoutSeed: Args.RngSeed);
                     break;
                 case BoostedTreeArgs.OptimizationAlgorithmType.ConjugateGradientDescent:
-                    optimizationAlgorithm = new ConjugateGradientDescent(Ensemble, TrainSet, InitTrainScores, gradientWrapper);
+                    optimizationAlgorithm = new ConjugateGradientDescent(Ensemble, TrainSet, InitTrainScores, gradientWrapper,
+                        dropoutRate: Args.DropoutRate, dropoutSeed: Args.RngSeed);
                     break;
                 default:
                     throw ch.Except("Unknown optimization algorithm '{0}'", Args.OptimizationAlgorithm);
@@ -83,8 +86,6 @@ namespace Microsoft.ML.Runtime.FastTree
             optimizationAlgorithm.TreeLearner = ConstructTreeLearner(ch);
             optimizationAlgorithm.ObjectiveFunction = ConstructObjFunc(ch);
             optimizationAlgorithm.Smoothing = Args.Smoothing;
-            optimizationAlgorithm.DropoutRate = Args.DropoutRate;
-            optimizationAlgorithm.DropoutRng = new Random(Args.RngSeed);
             optimizationAlgorithm.PreScoreUpdateEvent += PrintTestGraph;
 
             return optimizationAlgorithm;

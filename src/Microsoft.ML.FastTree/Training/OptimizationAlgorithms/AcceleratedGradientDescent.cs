@@ -7,8 +7,9 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
     //Accelerated gradient descent score tracker
     public class AcceleratedGradientDescent : GradientDescent
     {
-        public AcceleratedGradientDescent(Ensemble ensemble, Dataset trainData, double[] initTrainScores, IGradientAdjuster gradientWrapper)
-            : base(ensemble, trainData, initTrainScores, gradientWrapper)
+        public AcceleratedGradientDescent(Ensemble ensemble, Dataset trainData, double[] initTrainScores, IGradientAdjuster gradientWrapper,
+            double dropoutRate = 0, int dropoutSeed = int.MinValue)
+            : base(ensemble, trainData, initTrainScores, gradientWrapper, dropoutRate, dropoutSeed)
         {
             UseFastTrainingScoresUpdate = false;
         }
