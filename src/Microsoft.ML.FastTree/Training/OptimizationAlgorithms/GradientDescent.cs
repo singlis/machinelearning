@@ -21,8 +21,9 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         private double[] _droppedScores;
         private double[] _scores;
 
-        public GradientDescent(Ensemble ensemble, Dataset trainData, double[] initTrainScores, IGradientAdjuster gradientWrapper)
-            : base(ensemble, trainData, initTrainScores)
+        public GradientDescent(Ensemble ensemble, Dataset trainData, double[] initTrainScores, IGradientAdjuster gradientWrapper,
+            double dropoutRate = 0, int dropoutSeed = int.MinValue)
+            : base(ensemble, trainData, initTrainScores, dropoutRate, dropoutSeed)
         {
             _gradientWrapper = gradientWrapper;
             _treeScores = new List<double[]>();
@@ -36,6 +37,10 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         protected virtual double[] GetGradient(IChannel ch)
         {
             Contracts.AssertValue(ch);
+
+            // Assumes that GetGradient is called at most once per iteration
+            ResetDropoutSeed();
+
             if (DropoutRate > 0)
             {
                 if (_droppedScores == null)
@@ -94,7 +99,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         {
             Contracts.CheckValue(ch, nameof(ch));
             // Fit a regression tree to the gradient using least squares.
-            RegressionTree tree = TreeLearner.FitTargets(ch, activeFeatures, AdjustTargetsAndSetWeights(ch));
+            RegressionTree tree = TreeLearner.FitTargets(ch, activeFeatures, AdjustTargetsAndSetWeights(ch), iteration: Iteration);
             if (tree == null)
                 return null; // Could not learn a tree. Exit.
 
@@ -104,8 +109,13 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
             using (Timer.Time(TimerEvent.TreeLearnerAdjustTreeOutputs))
             {
                 double[] backupScores = null;
+<<<<<<< HEAD
                 // when doing dropouts we need to replace the TrainingScores with the scores without the dropped trees
                 if (DropoutRate > 0)
+=======
+                // when doing dropouts we need to replace the TrainingScores with the scores without the dropped trees 
+                if (_dropoutRate > 0)
+>>>>>>> Synchronizing seeds at each iteration. This allows newly provisioned workers to "fast-forward" to the latest iteration and have the same random number generator state as all other workers.
                 {
                     backupScores = TrainingScores.Scores;
                     TrainingScores.Scores = _scores;

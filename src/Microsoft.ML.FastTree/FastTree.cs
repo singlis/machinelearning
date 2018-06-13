@@ -372,7 +372,7 @@ namespace Microsoft.ML.Runtime.FastTree
             if (Args.FeatureFraction < 1.0)
             {
                 if (_featureSelectionRandom == null)
-                    _featureSelectionRandom = new Random(Args.FeatureSelectSeed);
+                    _featureSelectionRandom = new Random(Args.FeatureSelectSeed + Ensemble.NumTrees);
 
                 for (int i = 0; i < TrainSet.NumFeatures; ++i)
                 {
@@ -609,6 +609,9 @@ namespace Microsoft.ML.Runtime.FastTree
                 {
                     using (Timer.Time(TimerEvent.Iteration))
                     {
+                        // Reset Seeds
+                        _featureSelectionRandom = new Random(Args.FeatureSelectSeed + Ensemble.NumTrees);
+
 #if NO_STORE
                         bool[] activeFeatures = GetActiveFeatures();
 #else

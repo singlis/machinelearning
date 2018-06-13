@@ -32,17 +32,22 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
         public IStepSearch AdjustTreeOutputsOverride; // if set it overrides IStepSearch possibly implemented by ObejctiveFunctionBase
         public double Smoothing;
-        public double DropoutRate;
-        public Random DropoutRng;
+        protected double DropoutRate;
+        protected Random DropoutRng;
+        private int _dropoutSeed;
         public bool UseFastTrainingScoresUpdate;
 
-        public OptimizationAlgorithm(Ensemble ensemble, Dataset trainData, double[] initTrainScores)
+        public OptimizationAlgorithm(Ensemble ensemble, Dataset trainData, double[] initTrainScores,
+            double dropoutRate = 0, int dropoutSeed = int.MinValue)
         {
             Ensemble = ensemble;
             TrainingScores = ConstructScoreTracker("train", trainData, initTrainScores);
             TrackedScores = new List<ScoreTracker>();
             TrackedScores.Add(TrainingScores);
-            DropoutRng = new Random();
+            if (dropoutSeed != int.MinValue)
+                DropoutRng = new Random(dropoutSeed);
+            _dropoutSeed = dropoutSeed;
+            DropoutRate = dropoutRate;
             UseFastTrainingScoresUpdate = true;
         }
 
@@ -117,5 +122,12 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                 TrackedScores.Clear();  //Invalidate all precomputed scores as they are not valid anymore //slow method of score computation will be used instead
             }
         }
+
+        protected void ResetDropoutSeed()
+        {
+            DropoutRng = new Random(_dropoutSeed + Iteration);
+        }
+
+        protected int Iteration => Ensemble.NumTrees;
     }
 }
