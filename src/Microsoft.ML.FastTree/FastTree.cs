@@ -331,6 +331,7 @@ The output of the ensemble produced by MART on a given instance is the sum of th
             using (Timer.Time(TimerEvent.InitializeTraining))
             {
                 InitializeEnsemble();
+                ParallelTraining.InitializeTraining(Ensemble);
                 OptimizationAlgorithm = ConstructOptimizationAlgorithm(ch);
             }
             using (Timer.Time(TimerEvent.InitializeTests))
@@ -1415,83 +1416,88 @@ The output of the ensemble produced by MART on a given instance is the sum of th
                         // if we ever encounter missing values will become a "detect missing features" pass, which will
                         // in turn inform a necessary featurization pass secondary 
                         SlotDropper slotDropper = null;
-                        bool[] localConstructBinFeatures = Utils.CreateArray<bool>(NumFeatures, true);
-
-                        if (parallelTraining != null)
-                            localConstructBinFeatures = parallelTraining.GetLocalBinConstructionFeatures(NumFeatures);
 
                         using (var pch = Host.StartProgressChannel("FastTree disk-based bins initialization"))
                         {
-                            for (; ; )
+
+                            if (!parallelTraining.InitializeBins(BinUpperBounds))
                             {
-                                bool hasMissing = false;
-                                using (var cursor = trans.GetSlotCursor(featIdx))
+                                bool[] localConstructBinFeatures = Utils.CreateArray<bool>(NumFeatures, true);
+
+                                if (parallelTraining != null)
+                                    localConstructBinFeatures = parallelTraining.GetLocalBinConstructionFeatures(NumFeatures);
+
+                                for (; ; )
                                 {
-                                    HashSet<int> constructed = new HashSet<int>();
-                                    var getter = SubsetGetter(cursor.GetGetter<Float>(), slotDropper);
-                                    numExamples = slotDropper?.DstLength ?? trans.RowCount;
-
-                                    // Perhaps we should change the binning to just work over singles.
-                                    VBuffer<double> doubleTemp = default(VBuffer<double>);
-                                    double[] distinctValues = null;
-                                    int[] distinctCounts = null;
-                                    var copier = GetCopier<Float, Double>(NumberType.Float, NumberType.R8);
-                                    int iFeature = 0;
-                                    pch.SetHeader(new ProgressHeader("features"), e => e.SetProgress(0, iFeature, features.Length));
-                                    while (cursor.MoveNext())
+                                    bool hasMissing = false;
+                                    using (var cursor = trans.GetSlotCursor(featIdx))
                                     {
-                                        iFeature = checked((int)cursor.Position);
-                                        if (!localConstructBinFeatures[iFeature])
-                                            continue;
+                                        HashSet<int> constructed = new HashSet<int>();
+                                        var getter = SubsetGetter(cursor.GetGetter<Float>(), slotDropper);
+                                        numExamples = slotDropper?.DstLength ?? trans.RowCount;
 
-                                        Host.Assert(iFeature < features.Length);
-                                        Host.Assert(features[iFeature] == null);
-                                        getter(ref temp);
-                                        Host.Assert(temp.Length == numExamples);
-
-                                        // First get the bin bounds, constructing them if they do not exist.
-                                        if (BinUpperBounds[iFeature] == null)
+                                        // Perhaps we should change the binning to just work over singles.
+                                        VBuffer<double> doubleTemp = default(VBuffer<double>);
+                                        double[] distinctValues = null;
+                                        int[] distinctCounts = null;
+                                        var copier = GetCopier<Float, Double>(NumberType.Float, NumberType.R8);
+                                        int iFeature = 0;
+                                        pch.SetHeader(new ProgressHeader("features"), e => e.SetProgress(0, iFeature, features.Length));
+                                        while (cursor.MoveNext())
                                         {
-                                            constructed.Add(iFeature);
-                                            ch.Assert(maxBins > 0);
-                                            finder = finder ?? new BinFinder();
-                                            // Must copy over, as bin calculation is potentially destructive.
-                                            copier(ref temp, ref doubleTemp);
-                                            hasMissing = !CalculateBins(finder, ref doubleTemp, maxBins, 0,
-                                                ref distinctValues, ref distinctCounts,
-                                                out BinUpperBounds[iFeature]);
+                                            iFeature = checked((int)cursor.Position);
+                                            if (!localConstructBinFeatures[iFeature])
+                                                continue;
+
+                                            Host.Assert(iFeature < features.Length);
+                                            Host.Assert(features[iFeature] == null);
+                                            getter(ref temp);
+                                            Host.Assert(temp.Length == numExamples);
+
+                                            // First get the bin bounds, constructing them if they do not exist.
+                                            if (BinUpperBounds[iFeature] == null)
+                                            {
+                                                constructed.Add(iFeature);
+                                                ch.Assert(maxBins > 0);
+                                                finder = finder ?? new BinFinder();
+                                                // Must copy over, as bin calculation is potentially destructive.
+                                                copier(ref temp, ref doubleTemp);
+                                                hasMissing = !CalculateBins(finder, ref doubleTemp, maxBins, 0,
+                                                    ref distinctValues, ref distinctCounts,
+                                                    out BinUpperBounds[iFeature]);
+                                            }
+                                            else
+                                                hasMissing = hasMissingPred(ref temp);
+
+                                            if (hasMissing)
+                                            {
+                                                // Let's just be a little extra safe, since it's so easy to check and the results if there
+                                                // is a bug in the upstream pipeline would be very severe.
+                                                ch.Check(slotDropper == null,
+                                                    "Multiple passes over the data seem to be producing different data. There is a bug in the upstream pipeline.");
+
+                                                // Destroy any constructed bin upper bounds. We'll calculate them over the next pass.
+                                                foreach (var i in constructed)
+                                                    BinUpperBounds[i] = null;
+                                                // Determine what rows have missing values.
+                                                slotDropper = ConstructDropSlotRanges(cursor, getter, ref temp);
+                                                ch.Assert(slotDropper.DstLength < temp.Length);
+                                                ch.Warning("{0} of {1} examples will be skipped due to missing feature values",
+                                                    temp.Length - slotDropper.DstLength, temp.Length);
+
+                                                break;
+                                            }
+                                            Host.AssertValue(BinUpperBounds[iFeature]);
                                         }
-                                        else
-                                            hasMissing = hasMissingPred(ref temp);
-
-                                        if (hasMissing)
-                                        {
-                                            // Let's just be a little extra safe, since it's so easy to check and the results if there
-                                            // is a bug in the upstream pipeline would be very severe.
-                                            ch.Check(slotDropper == null,
-                                                "Multiple passes over the data seem to be producing different data. There is a bug in the upstream pipeline.");
-
-                                            // Destroy any constructed bin upper bounds. We'll calculate them over the next pass.
-                                            foreach (var i in constructed)
-                                                BinUpperBounds[i] = null;
-                                            // Determine what rows have missing values.
-                                            slotDropper = ConstructDropSlotRanges(cursor, getter, ref temp);
-                                            ch.Assert(slotDropper.DstLength < temp.Length);
-                                            ch.Warning("{0} of {1} examples will be skipped due to missing feature values",
-                                                temp.Length - slotDropper.DstLength, temp.Length);
-
-                                            break;
-                                        }
-                                        Host.AssertValue(BinUpperBounds[iFeature]);
                                     }
+                                    if (hasMissing == false)
+                                        break;
                                 }
-                                if (hasMissing == false)
-                                    break;
-                            }
 
-                            // Sync up global boundaries.
-                            if (parallelTraining != null)
-                                parallelTraining.SyncGlobalBoundary(NumFeatures, maxBins, BinUpperBounds);
+                                // Sync up global boundaries.
+                                if (parallelTraining != null)
+                                    parallelTraining.SyncGlobalBoundary(NumFeatures, maxBins, BinUpperBounds);
+                            }
 
                             List<FeatureFlockBase> flocks = new List<FeatureFlockBase>();
                             using (var cursor = trans.GetSlotCursor(featIdx))
@@ -1927,32 +1933,36 @@ The output of the ensemble produced by MART on a given instance is the sum of th
             {
                 // Find upper bounds for each bin for each feature.
                 using (var ch = Host.Start("InitBins"))
-                using (var pch = Host.StartProgressChannel("FastTree in-memory bins initialization"))
                 {
-                    BinFinder binFinder = new BinFinder();
-                    VBuffer<double> temp = default(VBuffer<double>);
-                    int len = _numExamples;
-                    double[] distinctValues = null;
-                    int[] distinctCounts = null;
-                    bool[] localConstructBinFeatures = parallelTraining.GetLocalBinConstructionFeatures(NumFeatures);
-                    int iFeature = 0;
-                    pch.SetHeader(new ProgressHeader("features"), e => e.SetProgress(0, iFeature, NumFeatures));
-                    List<int> trivialFeatures = new List<int>();
-                    for (iFeature = 0; iFeature < NumFeatures; iFeature++)
-                    {
-                        if (!localConstructBinFeatures[iFeature])
-                            continue;
-                        // The following strange call will actually sparsify.
-                        _instanceList[iFeature].CopyTo(len, ref temp);
-                        // REVIEW: In principle we could also put the min docs per leaf information
-                        // into here, and collapse bins somehow as we determine the bins, so that "trivial"
-                        // bins on the head or tail of the bin distribution are never actually considered.
-                        CalculateBins(binFinder, ref temp, maxBins, _minDocsPerLeaf,
-                            ref distinctValues, ref distinctCounts,
-                            out double[] binUpperBounds);
-                        BinUpperBounds[iFeature] = binUpperBounds;
+                    if(!parallelTraining.InitializeBins(BinUpperBounds)){
+                        using (var pch = Host.StartProgressChannel("FastTree in-memory bins initialization"))
+                        {
+                            BinFinder binFinder = new BinFinder();
+                            VBuffer<double> temp = default(VBuffer<double>);
+                            int len = _numExamples;
+                            double[] distinctValues = null;
+                            int[] distinctCounts = null;
+                            bool[] localConstructBinFeatures = parallelTraining.GetLocalBinConstructionFeatures(NumFeatures);
+                            int iFeature = 0;
+                            pch.SetHeader(new ProgressHeader("features"), e => e.SetProgress(0, iFeature, NumFeatures));
+                            List<int> trivialFeatures = new List<int>();
+                            for (iFeature = 0; iFeature < NumFeatures; iFeature++)
+                            {
+                                if (!localConstructBinFeatures[iFeature])
+                                    continue;
+                                // The following strange call will actually sparsify.
+                                _instanceList[iFeature].CopyTo(len, ref temp);
+                                // REVIEW: In principle we could also put the min docs per leaf information
+                                // into here, and collapse bins somehow as we determine the bins, so that "trivial"
+                                // bins on the head or tail of the bin distribution are never actually considered.
+                                CalculateBins(binFinder, ref temp, maxBins, _minDocsPerLeaf,
+                                    ref distinctValues, ref distinctCounts,
+                                    out double[] binUpperBounds);
+                                BinUpperBounds[iFeature] = binUpperBounds;
+                            }
+                            parallelTraining.SyncGlobalBoundary(NumFeatures, maxBins, BinUpperBounds);
+                        }
                     }
-                    parallelTraining.SyncGlobalBoundary(NumFeatures, maxBins, BinUpperBounds);
                     ch.Done();
                 }
             }

@@ -64,9 +64,17 @@ namespace Microsoft.ML.Runtime.FastTree
         void FinalizeEnvironment();
 
         /// <summary>
+        /// Initialize the training
+        /// </summary>
+        /// <param name="ensemble">The ensemble to train</param>
+        void InitializeTraining(Ensemble ensemble);
+
+        /// <summary>
         /// Initialize once while construct tree learner.
         /// </summary>
         void InitTreeLearner(Dataset trainData, int maxNumLeaves, int maxCatSplitPoints, ref int minDocInLeaf);
+
+        RegressionTree LearnTree(IChannel ch, Func<IChannel, bool[], double[], RegressionTree> treeLearner, bool[] activeFeatures, double[] targets);
 
         /// <summary>
         /// Finalize while tree learner is freed.
@@ -130,6 +138,13 @@ namespace Microsoft.ML.Runtime.FastTree
         /// will return a array this is the mean output of all leaves.
         /// </summary>
         double[] GlobalMean(Dataset dataset, RegressionTree tree, DocumentPartitioning partitioning, double[] weights, bool filterZeroLambdas);
+
+        /// <summary>
+        /// Initialize the bins if they have been precomputed.
+        /// </summary>
+        /// <param name="binUpperBounds">The array of bin upper bounds per feature</param>
+        /// <returns>Whether the bins were precomputed</returns>
+        bool InitializeBins(double[][] binUpperBounds);
 
         /// <summary>
         /// Get indices of features that should be find bin in local.

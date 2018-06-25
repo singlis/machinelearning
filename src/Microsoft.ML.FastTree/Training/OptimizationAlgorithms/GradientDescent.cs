@@ -99,7 +99,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         {
             Contracts.CheckValue(ch, nameof(ch));
             // Fit a regression tree to the gradient using least squares.
-            RegressionTree tree = TreeLearner.FitTargets(ch, activeFeatures, AdjustTargetsAndSetWeights(ch), iteration: Iteration);
+            RegressionTree tree = TreeLearner.FitTargets(ch, activeFeatures, AdjustTargetsAndSetWeights(ch));
             if (tree == null)
                 return null; // Could not learn a tree. Exit.
 

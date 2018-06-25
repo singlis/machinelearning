@@ -22,7 +22,13 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
         public static string TargetWeightsDatasetName { get { return "TargetWeightsDataset"; } }
 
-        public abstract RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, double[] targets, int iteration = 0);
+        public abstract RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, double[] targets);
+
+        /// <summary>
+        /// Reset any random number generator(s) to allow synchronization at boundaries
+        /// </summary>
+        /// <param name="seedModifier">An integer to add to the provided seed</param>
+        public abstract void ResetRandomState(int seedModifier);
 
         /// <summary>
         /// Get size of reserved memory for the tree learner.

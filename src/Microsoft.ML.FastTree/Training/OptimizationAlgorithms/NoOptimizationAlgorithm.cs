@@ -33,7 +33,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
             double[] targets = GetGradient(ch);
             double[] weightedTargets = _gradientWrapper.AdjustTargetAndSetWeights(targets, ObjectiveFunction, out sampleWeights);
             RegressionTree tree = ((RandomForestLeastSquaresTreeLearner)TreeLearner).FitTargets(ch, activeFeatures, weightedTargets,
-                targets, sampleWeights, iteration: Iteration);
+                targets, sampleWeights);
 
             if (tree != null)
                 Ensemble.AddTree(tree);
