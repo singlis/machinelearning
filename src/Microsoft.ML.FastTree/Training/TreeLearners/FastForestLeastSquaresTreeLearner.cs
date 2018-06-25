@@ -28,11 +28,9 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
             return new QuantileRegressionTree(NumLeaves);
         }
 
-        public RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, Double[] weightedtargets, Double[] targets, Double[] weights, int iteration = 0)
+        public RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, Double[] weightedtargets, Double[] targets, Double[] weights)
         {
-            ResetRandomNumberGenerator(iteration);
-
-            var tree = (QuantileRegressionTree)FitTargets(ch, activeFeatures, weightedtargets, iteration: iteration);
+            var tree = (QuantileRegressionTree)FitTargets(ch, activeFeatures, weightedtargets);
             if (tree != null && _quantileEnabled)
             {
                 Double[] distributionWeights = null;

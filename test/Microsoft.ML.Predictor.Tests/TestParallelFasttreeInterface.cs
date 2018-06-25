@@ -114,6 +114,11 @@ namespace Microsoft.ML.Runtime.RunTests
             return;
         }
 
+        public void InitializeTraining(Ensemble ensemble)
+        {
+            return;
+        }
+
         public void InitTreeLearner(Dataset trainData, int maxNumLeaves, int maxCatSplitPoints, ref int minDocInLeaf)
         {
             Assert.True(_isInitEnv);
@@ -121,6 +126,17 @@ namespace Microsoft.ML.Runtime.RunTests
             _isInitTreeLearner = true;
             Assert.NotNull(trainData);
             return;
+        }
+
+        public RegressionTree LearnTree(IChannel ch, Func<IChannel, bool[], double[], RegressionTree> learnTree, bool[] activeFeatures, double[] targets)
+        {
+            throw new NotImplementedException("TODO rocarr: Tests have note been updated for the new APIs!");
+        }
+
+        public bool InitializeBins(double[][] binUpperBounds)
+        {
+            // Add more stuff here
+            return false;
         }
 
         public void SyncGlobalBoundary(int numFeatures, int maxBin, Double[][] binUpperBounds)

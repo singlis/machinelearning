@@ -211,11 +211,16 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
             PerformSplit(tree, 0, targets, out dummyLteChild, out dummyGtChild);
         }
 
+        public sealed override RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, double[] targets)
+        {
+            return _parallelTraining.LearnTree(ch, this.LearnTree, activeFeatures, targets);
+        }
+
         /// <summary>
         /// Learns a new tree for the current outputs
         /// </summary>
         /// <returns>A regression tree</returns>
-        public sealed override RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, double[] targets, int iteration = 0)
+        private RegressionTree LearnTree(IChannel ch, bool[] activeFeatures, double[] targets)
         {
             int maxLeaves = base.NumLeaves;
             using (Timer.Time(TimerEvent.TreeLearnerGetTree))
@@ -226,7 +231,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                 tree.ActiveFeatures = (bool[])activeFeatures.Clone();
 
                 // clear memory
-                Initialize(activeFeatures, iteration);
+                Initialize(activeFeatures);
 
                 // find the best split of the root node.
                 FindBestSplitOfRoot(targets);
@@ -320,10 +325,9 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         /// <summary>
         /// Clears data structures
         /// </summary>
-        private void Initialize(bool[] activeFeatures, int iteration)
+        private void Initialize(bool[] activeFeatures)
         {
             // Synchronize the Random Number Generator
-            ResetRandomNumberGenerator(iteration);
             _parallelTraining.InitIteration(ref activeFeatures);
             ActiveFeatures = activeFeatures;
             HistogramArrayPool.Reset();
@@ -331,12 +335,12 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         }
 
         /// <summary>
-        /// Reset the random number generator to synchronize at iteration boundaries
+        /// Reset the random number generator to allow synchronization at boundaries
         /// </summary>
-        /// <param name="iteration">The iteration</param>
-        protected void ResetRandomNumberGenerator(int iteration)
+        /// <param name="seedModifier">An integer to add to the provided seed</param>
+        public override void ResetRandomState(int seedModifier)
         {
-            Rand = new Random(_randomSeed + iteration);
+            Rand = new Random(_randomSeed + seedModifier);
         }
 
         protected bool HasWeights => TrainData?.SampleWeights != null;

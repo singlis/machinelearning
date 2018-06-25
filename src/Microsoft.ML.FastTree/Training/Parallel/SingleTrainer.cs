@@ -74,9 +74,24 @@ namespace Microsoft.ML.Runtime.FastTree
             return;
         }
 
+        public void InitializeTraining(Ensemble ensemble)
+        {
+            return;
+        }
+
         public void InitTreeLearner(Dataset trainData, int maxNumLeaves, int maxCatSplitPoints, ref int minDocInLeaf)
         {
             return;
+        }
+
+        public bool InitializeBins(double[][] binUpperBounds)
+        {
+            return false;
+        }
+
+        public RegressionTree LearnTree(IChannel ch, Func<IChannel, bool[], double[], RegressionTree> learnTree, bool[] activeFeatures, double[] targets)
+        {
+            return learnTree(ch, activeFeatures, targets);
         }
 
         public void SyncGlobalBoundary(int numFeatures, int maxBin, Double[][] binUpperBounds)
