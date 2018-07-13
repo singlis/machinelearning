@@ -50,7 +50,7 @@ namespace Microsoft.ML.Runtime.RunTests
         }
     }
 
-    internal class FastTreeParallelBinCheckpointChecker : FastTreeParallelCheckpointCheckerBase
+    internal sealed class FastTreeParallelBinCheckpointChecker : FastTreeParallelCheckpointCheckerBase
     {
         private readonly ITestOutputHelper Logger;
         public FastTreeParallelBinCheckpointChecker(ITestOutputHelper logger)
