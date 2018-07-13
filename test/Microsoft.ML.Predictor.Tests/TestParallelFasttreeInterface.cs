@@ -24,6 +24,10 @@ namespace Microsoft.ML.Runtime.RunTests
         private bool _isInitTreeLearner = false;
         private bool _isInitIteration = false;
         private bool _isCache = false;
+        private bool _isInitTraining = false;
+        private bool _isLearnTree = false;
+        private bool _isInitBins = false;
+
         public void CacheHistogram(bool isSmallerLeaf, int featureIdx, int subfeature, SufficientStatsBase sufficientStatsBase, bool HasWeights)
         {
             Assert.True(_isInitEnv);
@@ -116,6 +120,10 @@ namespace Microsoft.ML.Runtime.RunTests
 
         public void InitializeTraining(Ensemble ensemble)
         {
+            Assert.NotNull(ensemble);
+            Assert.True(_isInitEnv);
+            Assert.True(_isInitBins);
+            _isInitTraining = true;
             return;
         }
 
@@ -130,12 +138,26 @@ namespace Microsoft.ML.Runtime.RunTests
 
         public RegressionTree LearnTree(IChannel ch, Func<IChannel, bool[], double[], RegressionTree> learnTree, bool[] activeFeatures, double[] targets)
         {
-            throw new NotImplementedException("TODO rocarr: Tests have note been updated for the new APIs!");
+            Assert.NotNull(learnTree);
+            Assert.NotNull(activeFeatures);
+            Assert.NotNull(targets);
+            Assert.True(_isInitEnv);
+            Assert.True(_isInitBins);
+            Assert.True(_isInitTreeLearner);
+            Assert.True(_isInitTraining);
+            _isLearnTree = true;
+            return learnTree(ch, activeFeatures, targets);
         }
 
         public bool InitializeBins(double[][] binUpperBounds)
         {
-            // Add more stuff here
+            Assert.NotNull(binUpperBounds);
+            Assert.False(_isInitIteration);
+            Assert.False(_isInitTraining);
+            Assert.False(_isInitTreeLearner);
+            Assert.False(_isLearnTree);
+            Assert.False(_isCache);
+            _isInitBins = true;
             return false;
         }
 
