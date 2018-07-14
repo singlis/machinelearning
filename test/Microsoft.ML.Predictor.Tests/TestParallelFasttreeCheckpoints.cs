@@ -167,13 +167,16 @@ namespace Microsoft.ML.Runtime.RunTests
                 new MultiFileSource(dataPath));
 
             // Specify the dataset
-            dataset = new RoleMappedData(loader, label: "Label", feature: "Features");
+            //dataset = new RoleMappedData(loader, label: "Label", feature: "Features");
 
-            // Train on the dataset
-            trainer.Train(dataset);
+            //// Train on the dataset
+            //trainer.Train(dataset);
 
-            // Return the predictor
-            return trainer.CreatePredictor();
+            //// Return the predictor
+            //return trainer.CreatePredictor();
+
+            dataset = null;
+            return null;
         }
 
         private void ComparePredictors(TlcEnvironment env, IPredictor firstPredictor, IPredictor secondPredictor, RoleMappedData dataset)
@@ -239,25 +242,6 @@ namespace Microsoft.ML.Runtime.RunTests
                     Features = new float[9] {1f, 1f, 1f, 1f, 1f, 1f, 1e-4f, 1f, 2f,}
                 }
             };
-        }
-
-        private IDataScorerTransform GetScorer(IHostEnvironment env, IDataView transforms, IPredictor pred, string testDataPath = null)
-        {
-            using (var ch = env.Start("Saving model"))
-            using (var memoryStream = new MemoryStream())
-            {
-                var trainRoles = new RoleMappedData(transforms, label: "Label", feature: "Features");
-                // Model cannot be saved with CacheDataView
-                TrainUtils.SaveModel(env, ch, memoryStream, pred, trainRoles);
-                memoryStream.Position = 0;
-
-                using (var rep = RepositoryReader.Open(memoryStream, ch))
-                {
-                    IDataLoader testPipe = ModelFileUtils.LoadLoader(env, rep, new MultiFileSource(testDataPath), true);
-                    RoleMappedData testRoles = new RoleMappedData(testPipe, label: "Label", feature: "Features");
-                    return ScoreUtils.GetScorer(pred, testRoles, env, testRoles.Schema);
-                }
-            }
         }
     }
 
