@@ -29,6 +29,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
         public Ensemble()
         {
+            _firstInputInitializationContent = string.Empty;
             _trees = new List<RegressionTree>();
         }
 
@@ -50,6 +51,22 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                 AddTree(RegressionTree.Load(ctx, usingDefaultValues, categoricalSplits));
             Bias = ctx.Reader.ReadDouble();
             _firstInputInitializationContent = ctx.LoadStringOrNull();
+            if (_firstInputInitializationContent == null)
+            {
+                _firstInputInitializationContent = string.Empty;
+            }
+        }
+
+        public Ensemble(byte[] buffer, ref int position)
+        {
+            _firstInputInitializationContent = buffer.ToString(ref position);
+            Bias = buffer.ToDouble(ref position);
+            int numTrees = buffer.ToInt(ref position);
+            _trees = new List<RegressionTree>();
+            for (int i = 0; i < numTrees; ++i)
+            {
+                _trees.Add(new RegressionTree(buffer, ref position));
+            }
         }
 
         public void Save(ModelSaveContext ctx)
@@ -66,6 +83,41 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                 tree.Save(ctx);
             writer.Write(Bias);
             ctx.SaveStringOrNull(_firstInputInitializationContent);
+        }
+
+        public void ToByteArray(byte[] buffer, ref int position)
+        {
+            // Serialize out the initialization array
+            var inputInitializeArray = _firstInputInitializationContent.ToByteArray();
+            var count = inputInitializeArray.Length;
+            Buffer.BlockCopy(inputInitializeArray, 0, buffer, position, count);
+            position += count;
+
+            // Serialize the bias
+            var biasByteArray = BitConverter.GetBytes(Bias);
+            count = biasByteArray.Length;
+            Buffer.BlockCopy(biasByteArray, 0, buffer, position, count);
+            position += count;
+
+            // Serialize the tree count
+            var treeSizeByteArray = BitConverter.GetBytes(_trees.Count);
+            count = treeSizeByteArray.Length;
+            Buffer.BlockCopy(treeSizeByteArray, 0, buffer, position, count);
+            position += count;
+
+            foreach(var tree in _trees)
+            {
+                tree.ToByteArray(buffer, ref position);
+            }
+        }
+
+
+        public int SizeInBytes()
+        {
+            return System.Text.ASCIIEncoding.Unicode.GetByteCount(_firstInputInitializationContent) // input initialization
+                  + sizeof(double)  // bias
+                  + sizeof(int)     //tree count
+                  + _trees.Sum(x => x.SizeInBytes());
         }
 
         public void AddTree(RegressionTree tree) => _trees.Add(tree);
@@ -353,6 +405,8 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
             builder.GetResult(ref contribs);
         }
+
+        
     }
 
     public class FeatureToGainMap : Dictionary<int, double>
