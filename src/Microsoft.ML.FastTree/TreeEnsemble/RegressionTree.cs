@@ -88,6 +88,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
             _splitGain = new double[maxLeaves - 1];
             _gainPValue = new double[maxLeaves - 1];
             _previousLeafValue = new double[maxLeaves - 1];
+            RawThresholds = new Float[maxLeaves - 1];
             Thresholds = new UInt32[maxLeaves - 1];
             DefaultValueForMissing = null;
             LteChild = new int[maxLeaves - 1];
