@@ -315,9 +315,9 @@ namespace Microsoft.ML.Runtime.RunTests
             return;
         }
 
-        public RegressionTree LearnTree(IChannel ch, Func<IChannel, bool[], double[], RegressionTree> learnTree, bool[] activeFeatures, double[] targets)
+        public RegressionTree LearnTree(IChannel ch, Func<IChannel, bool[], double[], int, RegressionTree> learnTree, bool[] activeFeatures, double[] targets)
         {
-            return learnTree(ch, activeFeatures, targets);
+            return learnTree(ch, activeFeatures, targets, 123);
         }
 
         public void SyncGlobalBoundary(int numFeatures, int maxBin, Double[][] binUpperBounds)

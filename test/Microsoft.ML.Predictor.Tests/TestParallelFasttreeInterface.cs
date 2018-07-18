@@ -136,7 +136,7 @@ namespace Microsoft.ML.Runtime.RunTests
             return;
         }
 
-        public RegressionTree LearnTree(IChannel ch, Func<IChannel, bool[], double[], RegressionTree> learnTree, bool[] activeFeatures, double[] targets)
+        public RegressionTree LearnTree(IChannel ch, Func<IChannel, bool[], double[], int, RegressionTree> learnTree, bool[] activeFeatures, double[] targets)
         {
             Assert.NotNull(learnTree);
             Assert.NotNull(activeFeatures);
@@ -146,7 +146,7 @@ namespace Microsoft.ML.Runtime.RunTests
             Assert.True(_isInitTreeLearner);
             Assert.True(_isInitTraining);
             _isLearnTree = true;
-            return learnTree(ch, activeFeatures, targets);
+            return learnTree(ch, activeFeatures, targets, 123);
         }
 
         public bool InitializeBins(double[][] binUpperBounds)

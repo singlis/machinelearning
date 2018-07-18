@@ -220,8 +220,9 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         /// Learns a new tree for the current outputs
         /// </summary>
         /// <returns>A regression tree</returns>
-        private RegressionTree LearnTree(IChannel ch, bool[] activeFeatures, double[] targets)
+        private RegressionTree LearnTree(IChannel ch, bool[] activeFeatures, double[] targets, int randomSeed)
         {
+            ResetRandomState(randomSeed);
             int maxLeaves = base.NumLeaves;
             using (Timer.Time(TimerEvent.TreeLearnerGetTree))
             {
