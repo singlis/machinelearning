@@ -30,11 +30,15 @@ namespace Microsoft.ML.Runtime.RunTests
     public static class SharedParameters
     {
         public static double[][] BinUpperBounds;
-        //public static Ensemble Ensemble;
+        public static Ensemble TreeEnsemble;
+        public static int NumIterations;
 
         public static void Persist()
         {
-            PersistBins();
+            if (BinUpperBounds != null)
+                PersistBins();
+            if (TreeEnsemble != null)
+                PersistEnsemble();
         }
 
         private static void PersistBins()
@@ -48,14 +52,23 @@ namespace Microsoft.ML.Runtime.RunTests
             // Point to the data copy
             BinUpperBounds = binUpperBounds;
         }
+
+        private static void PersistEnsemble()
+        {
+            var ensemble = new Ensemble();
+            foreach (var tree in TreeEnsemble.Trees)
+            {
+                // Just copy the tree pointer for now
+                ensemble.AddTree(tree);
+            }
+            TreeEnsemble = ensemble;
+        }
     }
 
     internal sealed class FastTreeParallelBinCheckpointChecker : FastTreeParallelCheckpointCheckerBase
     {
-        private readonly ITestOutputHelper Logger;
-        public FastTreeParallelBinCheckpointChecker(ITestOutputHelper logger)
+        public FastTreeParallelBinCheckpointChecker(ITestOutputHelper logger) : base(logger)
         {
-            Logger = logger;
         }
 
         public override bool InitializeBins(double[][] binUpperBounds)
@@ -76,26 +89,57 @@ namespace Microsoft.ML.Runtime.RunTests
             SharedParameters.BinUpperBounds = binUpperBounds;
             return false;
         }
+    }
 
-        public override void FinalizeEnvironment()
+    internal sealed class FastTreeParallelEnsembleCheckpointChecker : FastTreeParallelCheckpointCheckerBase
+    {
+        public FastTreeParallelEnsembleCheckpointChecker(ITestOutputHelper logger) : base(logger)
         {
-            Logger.WriteLine("TEST #2: Persisting state for the next round!");
-            SharedParameters.Persist();
-            return;
+        }
+
+        public override void InitializeTraining(Ensemble ensemble)
+        {
+            if (SharedParameters.TreeEnsemble != null)
+            {
+                var howManyTreesToCopy = SharedParameters.TreeEnsemble.NumTrees - 2;
+                Logger.WriteLine("TEST #3: Copying {0} of {1} trees from Ensemble to FastTree", howManyTreesToCopy, SharedParameters.TreeEnsemble.NumTrees);
+                // Copy the bins if they exist
+                for (int i = 0; i < howManyTreesToCopy; i++)
+                {
+                    ensemble.AddTree(SharedParameters.TreeEnsemble.GetTreeAt(i));
+                }
+                return;
+            }
+
+            Logger.WriteLine("TEST #1: Not copying ensemble; saving a reference for later!");
+            // Otherwise, keep a pointer
+            SharedParameters.TreeEnsemble = ensemble;
         }
     }
 
-    [TlcModule.Component(Name = "ParallelTrainingFactoryForTest")]
-    public sealed class ParallelTrainingFactory : ISupportParallelTraining
+    [TlcModule.Component(Name = "ParallelTrainingFactoryForChecking")]
+    public sealed class ParallelTrainingFactoryForChecking : ISupportParallelTraining
     {
         private readonly ITestOutputHelper Logger;
 
-        public ParallelTrainingFactory(ITestOutputHelper logger)
+        public enum TestType { Bin, Ensemble };
+        private static TestType _testType;
+
+        public ParallelTrainingFactoryForChecking(ITestOutputHelper logger, TestType testType)
         {
             Logger = logger;
+            _testType = testType;
         }
 
-        public IParallelTraining CreateComponent(IHostEnvironment env) => new FastTreeParallelBinCheckpointChecker(Logger);
+        public IParallelTraining CreateComponent(IHostEnvironment env)
+        {
+            if (_testType == TestType.Bin)
+                return new FastTreeParallelBinCheckpointChecker(Logger);
+            else if (_testType == TestType.Ensemble)
+                return new FastTreeParallelEnsembleCheckpointChecker(Logger);
+            else
+                throw new NotImplementedException();
+        }
     }
 
     public class TestParallelFasttreeCheckpoints : BaseTestBaseline
@@ -112,7 +156,8 @@ namespace Microsoft.ML.Runtime.RunTests
         [TestCategory("ParallelFasttree")]
         public void CheckParallelFastTreeBinCheckpoint()
         {
-            ISupportParallelTraining parallelTrainingFactory = new ParallelTrainingFactory(Logger);
+            ISupportParallelTraining parallelTrainingFactory = 
+                new ParallelTrainingFactoryForChecking(Logger, ParallelTrainingFactoryForChecking.TestType.Bin);
 
             using (var env = new TlcEnvironment())
             {
@@ -128,7 +173,35 @@ namespace Microsoft.ML.Runtime.RunTests
                     NumTrees = 5,
                     ParallelTrainer = parallelTrainingFactory
                 });
-                var secondPredictor = TrainPredictor(env, firstTrainer, out dataset);
+                var secondPredictor = TrainPredictor(env, secondTrainer, out dataset);
+
+                // Compare the predictors
+                ComparePredictors(env, firstPredictor, secondPredictor, dataset);
+            }
+        }
+
+        [Fact]
+        [TestCategory("ParallelFasttree")]
+        public void CheckParallelFastTreeEnsembleCheckpoint()
+        {
+            ISupportParallelTraining parallelTrainingFactory = 
+                new ParallelTrainingFactoryForChecking(Logger, ParallelTrainingFactoryForChecking.TestType.Ensemble);
+
+            using (var env = new TlcEnvironment())
+            {
+                var firstTrainer = new FastTreeBinaryClassificationTrainer(env, new FastTreeBinaryClassificationTrainer.Arguments()
+                {
+                    NumTrees = 5,
+                    ParallelTrainer = parallelTrainingFactory
+                });
+                var firstPredictor = TrainPredictor(env, firstTrainer, out RoleMappedData dataset);
+
+                var secondTrainer = new FastTreeBinaryClassificationTrainer(env, new FastTreeBinaryClassificationTrainer.Arguments()
+                {
+                    NumTrees = 5,
+                    ParallelTrainer = parallelTrainingFactory
+                });
+                var secondPredictor = TrainPredictor(env, secondTrainer, out dataset);
 
                 // Compare the predictors
                 ComparePredictors(env, firstPredictor, secondPredictor, dataset);
@@ -167,16 +240,13 @@ namespace Microsoft.ML.Runtime.RunTests
                 new MultiFileSource(dataPath));
 
             // Specify the dataset
-            //dataset = new RoleMappedData(loader, label: "Label", feature: "Features");
+            dataset = new RoleMappedData(loader, label: "Label", feature: "Features");
 
-            //// Train on the dataset
-            //trainer.Train(dataset);
+            // Train on the dataset
+            trainer.Train(dataset);
 
-            //// Return the predictor
-            //return trainer.CreatePredictor();
-
-            dataset = null;
-            return null;
+            // Return the predictor
+            return trainer.CreatePredictor();
         }
 
         private void ComparePredictors(TlcEnvironment env, IPredictor firstPredictor, IPredictor secondPredictor, RoleMappedData dataset)
@@ -184,7 +254,7 @@ namespace Microsoft.ML.Runtime.RunTests
             var firstModel = GetModel(env, firstPredictor, dataset);
             var firstPredictions = firstModel.Predict(GetTestData(), false).Select(p => p.Probability);
 
-            var secondModel = GetModel(env, firstPredictor, dataset);
+            var secondModel = GetModel(env, secondPredictor, dataset);
             var secondPredictions = secondModel.Predict(GetTestData(), false).Select(p => p.Probability);
 
             Assert.Equal(firstPredictions, secondPredictions);
@@ -247,6 +317,13 @@ namespace Microsoft.ML.Runtime.RunTests
 
     internal class FastTreeParallelCheckpointCheckerBase : IParallelTraining
     {
+        protected readonly ITestOutputHelper Logger;
+
+        public FastTreeParallelCheckpointCheckerBase(ITestOutputHelper logger)
+        {
+            Logger = logger;
+        }
+
         public virtual bool InitializeBins(double[][] binUpperBounds)
         {
             return false;
@@ -302,11 +379,13 @@ namespace Microsoft.ML.Runtime.RunTests
 
         public void InitIteration(ref bool[] activeFeatures)
         {
+            SharedParameters.NumIterations++;
             return;
         }
 
         public void InitEnvironment()
         {
+            SharedParameters.NumIterations = 0;
             return;
         }
 
@@ -327,6 +406,9 @@ namespace Microsoft.ML.Runtime.RunTests
 
         public virtual void FinalizeEnvironment()
         {
+            Logger.WriteLine("Test INFO: {0} trees were fit.", SharedParameters.NumIterations);
+            Logger.WriteLine("TEST #2: Persisting state for the next round!");
+            SharedParameters.Persist();
             return;
         }
 

@@ -79,7 +79,7 @@ namespace Microsoft.ML.Runtime.FastTree
         // random for active features selection
         private Random _featureSelectionRandom;
 
-        protected string InnerArgs => CmdParser.GetSettings(Host, Args, new TArgs());
+        protected string InnerArgs => ""; //CmdParser.GetSettings(Host, Args, new TArgs());
 
         public override TrainerInfo Info { get; }
 
@@ -303,6 +303,7 @@ namespace Microsoft.ML.Runtime.FastTree
                 InitializeEnsemble();
                 ParallelTraining.InitializeTraining(Ensemble);
                 OptimizationAlgorithm = ConstructOptimizationAlgorithm(ch);
+                OptimizationAlgorithm.InitializeScores();
             }
             using (Timer.Time(TimerEvent.InitializeTests))
                 InitializeTests();
@@ -769,7 +770,7 @@ namespace Microsoft.ML.Runtime.FastTree
         {
             Contracts.AssertValue(ch);
             ch.Trace("Host = {0}", Environment.MachineName);
-            ch.Trace("CommandLine = {0}", CmdParser.GetSettings(ch, Args, new TArgs()));
+            //ch.Trace("CommandLine = {0}", CmdParser.GetSettings(ch, Args, new TArgs()));
             ch.Trace("GCSettings.IsServerGC = {0}", System.Runtime.GCSettings.IsServerGC);
             ch.Trace("{0}", Args);
         }
