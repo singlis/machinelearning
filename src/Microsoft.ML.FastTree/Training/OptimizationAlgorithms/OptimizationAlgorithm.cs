@@ -72,17 +72,13 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         }
 
         /// <summary>
-        /// Force the initialization of scores on all the tracked scores for cases when
-        /// the ensemble is non-empty.
-        /// Note: This should be marked as protected and merged into the constructor once all constructor parameters are internalized
+        /// Update all the scores using the ensemble. Used when there is an update
+        /// to the ensemble outside of the usual control-flow.
         /// </summary>
-        public virtual void InitializeScores()
-        {         
-            foreach (var tree in Ensemble.Trees)
-            {
-                foreach (ScoreTracker t in TrackedScores)
-                    t.AddScores(tree, 1.0);
-            }
+        public virtual void UpdateAllScoresInEnsemble(IChannel ch, int offset=0)
+        {
+            for (int i = offset; i < Ensemble.NumTrees; ++i)
+                UpdateAllScores(ch, Ensemble.GetTreeAt(i));
         }
 
         public virtual void UpdateScores(ScoreTracker t, RegressionTree tree)

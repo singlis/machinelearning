@@ -12,7 +12,6 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         protected DocumentPartitioning CurrentTrainPartition;
         protected DocumentPartitioning CurrentOutOfBagPartition;
 
-        protected Random RndGenerator;
         protected int MaxLeaves;
         protected double TrainFraction;
 
@@ -20,17 +19,17 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         {
             CompleteTrainingSet = completeTrainingSet;
             MaxLeaves = maxLeaves;
-            RndGenerator = new Random(randomSeed);
             TrainFraction = trainFraction;
-            GenerateNewBag();
+            GenerateNewBag(randomSeed);
         }
 
-        public virtual void GenerateNewBag()
+        public virtual void GenerateNewBag(int randomSeed)
         {
             int[] trainDocs = new int[CompleteTrainingSet.NumDocs];
             int[] outOfBagDocs = new int[CompleteTrainingSet.NumDocs];
             int trainSize = 0;
             int outOfBagSize = 0;
+            var rndGenerator = new Random(randomSeed);
 
             for (int i = 0; i < CompleteTrainingSet.NumQueries; i++)
             {
@@ -38,7 +37,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                 int numDocuments = CompleteTrainingSet.Boundaries[i + 1] - begin;
                 for (int d = 0; d < numDocuments; d++)
                 {
-                    if (RndGenerator.NextDouble() < TrainFraction)
+                    if (rndGenerator.NextDouble() < TrainFraction)
                     {
                         trainDocs[trainSize] = begin + d;
                         trainSize++;
@@ -94,12 +93,13 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         {
         }
 
-        public override void GenerateNewBag()
+        public override void GenerateNewBag(int randomSeed)
         {
             int[] trainDocs = new int[CompleteTrainingSet.NumDocs];
             int[] outOfBagDocs = new int[CompleteTrainingSet.NumDocs];
             int trainSize = 0;
             int outOfBagSize = 0;
+            var rndGenerator = new Random(randomSeed);
 
             int[] tmpTrainQueryIndices = new int[CompleteTrainingSet.NumQueries];
             bool[] selectedTrainQueries = new bool[CompleteTrainingSet.NumQueries];
@@ -110,7 +110,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
                 int begin = CompleteTrainingSet.Boundaries[i];
                 int numDocuments = CompleteTrainingSet.Boundaries[i + 1] - begin;
 
-                if (RndGenerator.NextDouble() < TrainFraction)
+                if (rndGenerator.NextDouble() < TrainFraction)
                 {
                     for (int d = 0; d < numDocuments; d++)
                     {

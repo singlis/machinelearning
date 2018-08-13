@@ -202,6 +202,12 @@ namespace Microsoft.ML.Runtime.RunTests
             Assert.True(_isInitIteration);
             return true;
         }
+
+        public int SynchronizeEnsemble()
+        {
+            Assert.True(_isInitTraining);
+            return 0;
+        }
     }
 
     public class TestParallelFasttreeInterface : BaseTestBaseline

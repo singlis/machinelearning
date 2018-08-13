@@ -426,5 +426,10 @@ namespace Microsoft.ML.Runtime.RunTests
         {
             return true;
         }
+
+        public int SynchronizeEnsemble()
+        {
+            return 0;
+        }
     }
 }

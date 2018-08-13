@@ -161,6 +161,12 @@ namespace Microsoft.ML.Runtime.FastTree
         /// then perform a global sync up.
         /// </summary>
         void SyncGlobalBoundary(int numFeatures, int maxBin, Double[][] binUpperBounds);
+
+        /// <summary>
+        /// Synchonize the tree ensemble across parallel workers
+        /// </summary>
+        /// <returns>The number of trees added to the ensemble</returns>
+        int SynchronizeEnsemble();
     }
 
     [TlcModule.ComponentKind("ParallelTraining")]

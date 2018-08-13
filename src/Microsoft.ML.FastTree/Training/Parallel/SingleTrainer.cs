@@ -64,6 +64,11 @@ namespace Microsoft.ML.Runtime.FastTree
             return;
         }
 
+        public int SynchronizeEnsemble()
+        {
+            return 0;
+        }
+
         public void InitIteration(ref bool[] activeFeatures)
         {
             return;
