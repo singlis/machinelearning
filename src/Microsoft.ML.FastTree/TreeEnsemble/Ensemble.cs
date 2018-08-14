@@ -59,7 +59,15 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
         public Ensemble(byte[] buffer, ref int position)
         {
-            _firstInputInitializationContent = buffer.ToString(ref position);
+            var inputByteCount = buffer.ToInt(ref position);
+            var tmpString = System.Text.ASCIIEncoding.Unicode.GetString(buffer, position, inputByteCount);
+            if (tmpString == "EMPTY")
+            {
+                tmpString = string.Empty;
+            }
+            _firstInputInitializationContent = tmpString;
+            position += inputByteCount;
+
             Bias = buffer.ToDouble(ref position);
             int numTrees = buffer.ToInt(ref position);
             _trees = new List<RegressionTree>();
@@ -87,15 +95,27 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
         public void ToByteArray(byte[] buffer, ref int position)
         {
-            // Serialize out the initialization array
-            var inputInitializeArray = _firstInputInitializationContent.ToByteArray();
-            var count = inputInitializeArray.Length;
-            Buffer.BlockCopy(inputInitializeArray, 0, buffer, position, count);
-            position += count;
+            // If the input initialization is empty, serialize out the word EMPTY
+            var tmpString = string.Copy(_firstInputInitializationContent);
+            if (string.IsNullOrEmpty(tmpString))
+            {
+                tmpString = "EMPTY";
+            }
+
+            // Serialize out the initialization array in unicode
+            var inputInitializeArray = System.Text.ASCIIEncoding.Unicode.GetBytes(tmpString);
+
+            // Serialize out the byte count
+            var inputByteCount = BitConverter.GetBytes(inputInitializeArray.Length);
+            Buffer.BlockCopy(inputByteCount, 0, buffer, position, inputByteCount.Length);
+            position  += inputByteCount.Length;
+
+            Buffer.BlockCopy(inputInitializeArray, 0, buffer, position, inputInitializeArray.Length);
+            position += inputInitializeArray.Length;
 
             // Serialize the bias
             var biasByteArray = BitConverter.GetBytes(Bias);
-            count = biasByteArray.Length;
+            int count = biasByteArray.Length;
             Buffer.BlockCopy(biasByteArray, 0, buffer, position, count);
             position += count;
 
@@ -114,7 +134,13 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
         public int SizeInBytes()
         {
-            return System.Text.ASCIIEncoding.Unicode.GetByteCount(_firstInputInitializationContent) // input initialization
+            var tmpString = _firstInputInitializationContent;
+            if (string.IsNullOrEmpty(tmpString))
+            {
+                tmpString="EMPTY";
+            }
+            return sizeof(int) // byte count of input initialization string
+                  + System.Text.ASCIIEncoding.Unicode.GetByteCount(tmpString) // the buffer encoded
                   + sizeof(double)  // bias
                   + sizeof(int)     //tree count
                   + _trees.Sum(x => x.SizeInBytes());
