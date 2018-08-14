@@ -131,7 +131,6 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
             }
         }
 
-
         public int SizeInBytes()
         {
             var tmpString = _firstInputInitializationContent;
@@ -431,8 +430,6 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
             builder.GetResult(ref contribs);
         }
-
-        
     }
 
     public class FeatureToGainMap : Dictionary<int, double>

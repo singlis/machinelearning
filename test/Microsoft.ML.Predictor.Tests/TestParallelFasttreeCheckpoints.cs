@@ -243,10 +243,7 @@ namespace Microsoft.ML.Runtime.RunTests
             dataset = new RoleMappedData(loader, label: "Label", feature: "Features");
 
             // Train on the dataset
-            trainer.Train(dataset);
-
-            // Return the predictor
-            return trainer.CreatePredictor();
+            return trainer.Train(dataset);
         }
 
         private void ComparePredictors(TlcEnvironment env, IPredictor firstPredictor, IPredictor secondPredictor, RoleMappedData dataset)

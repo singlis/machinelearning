@@ -213,7 +213,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
         public sealed override RegressionTree FitTargets(IChannel ch, bool[] activeFeatures, double[] targets)
         {
-            return _parallelTraining.LearnTree(ch, this.LearnTree, activeFeatures, targets);
+            return _parallelTraining.LearnTree(ch, LearnTree, activeFeatures, targets);
         }
 
         /// <summary>

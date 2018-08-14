@@ -109,13 +109,8 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
             using (Timer.Time(TimerEvent.TreeLearnerAdjustTreeOutputs))
             {
                 double[] backupScores = null;
-<<<<<<< HEAD
                 // when doing dropouts we need to replace the TrainingScores with the scores without the dropped trees
                 if (DropoutRate > 0)
-=======
-                // when doing dropouts we need to replace the TrainingScores with the scores without the dropped trees 
-                if (_dropoutRate > 0)
->>>>>>> Synchronizing seeds at each iteration. This allows newly provisioned workers to "fast-forward" to the latest iteration and have the same random number generator state as all other workers.
                 {
                     backupScores = TrainingScores.Scores;
                     TrainingScores.Scores = _scores;

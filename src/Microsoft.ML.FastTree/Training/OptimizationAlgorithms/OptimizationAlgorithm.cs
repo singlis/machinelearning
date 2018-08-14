@@ -62,8 +62,7 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
 
         public virtual void UpdateAllScores(IChannel ch, RegressionTree tree)
         {
-            if (PreScoreUpdateEvent != null)
-                PreScoreUpdateEvent(ch);
+            PreScoreUpdateEvent?.Invoke(ch);
             using (Timer.Time(TimerEvent.UpdateScores))
             {
                 foreach (ScoreTracker t in TrackedScores)
@@ -78,7 +77,12 @@ namespace Microsoft.ML.Runtime.FastTree.Internal
         public virtual void UpdateAllScoresInEnsemble(IChannel ch, int offset=0)
         {
             for (int i = offset; i < Ensemble.NumTrees; ++i)
-                UpdateAllScores(ch, Ensemble.GetTreeAt(i));
+            {
+                PreScoreUpdateEvent?.Invoke(ch);
+                foreach (ScoreTracker t in TrackedScores)
+                    // Directly add all scores to all sets
+                    t.AddScores(Ensemble.GetTreeAt(i), 1.0);
+            }
         }
 
         public virtual void UpdateScores(ScoreTracker t, RegressionTree tree)
